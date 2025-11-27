@@ -1,9 +1,9 @@
 // Cargar la librería Servo
 #include <ESP32Servo.h> 
 // Definir pines Trig y Echo del sensor
-const int trigPin = 10;
-const int echoPin = 11;
-const int servoPin = 5;
+const int trigPin = 4;
+const int echoPin = 2;
+const int servoPin = 12;
 
 long duration;
 int distance;
@@ -17,9 +17,9 @@ void setup() {
 
 void loop() {
   // rota el servo motor desde 10 hasta 170 grados
-  for(int i=10; i<=170; i+=5){  
+  for(int i=10; i<=170; i+=1){  
      myServo.write(i);
-     delay(1000);
+     delay(35);
      distance = calculateDistance();
   
      Serial.print(i); // Envía los grados a la GUI
@@ -28,9 +28,9 @@ void loop() {
      Serial.print("."); 
   }
   // Regresar de 170 a 10 grados
-  for(int i=170; i>10; i-=5){  
+  for(int i=170; i>10; i-=1){  
      myServo.write(i);
-     delay(1000);
+     delay(35);
      distance = calculateDistance();
   
      Serial.print(i);
