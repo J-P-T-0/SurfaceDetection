@@ -2,11 +2,8 @@ import processing.serial.*;
 
 Serial myPort;
 float[] distances = new float[180];
-boolean started = false;
-float interpSteps = 20; 
 
-int lastAngle = 0;
-boolean direction = true;
+float interpSteps = 20; 
 
 float angle = 0;
 float distance = 0;
@@ -28,26 +25,17 @@ void setup() {
   translate(width/2, height/2);
 }
 
+boolean angleInRange(int ang, int start, int end) {
+  if (start <= end) {
+    return ang >= start && ang <= end;
+  } else {
+    // Maneja wrap-around (ej: 350 → 10)
+    return ang >= start || ang <= end;
+  }
+}
+
 
 void draw() {
-  if(currentAngle > 20){
-    started = true;
-    lastAngle = 0;
-  }
-  
-  if(started){
-    if(direction){
-      lastAngle++;    
-    }else{
-      lastAngle--; 
-    }
-   
-  }
-  
-  if(lastAngle >= 180 || lastAngle <= 0){
-     direction = !direction;
-  }
-  
   background(0);
   translate(width/2, height/2);
   stroke(255);
@@ -58,15 +46,19 @@ void draw() {
     ellipse(0, 0, r*2, r*2);
   }
   
+  int startAngle = max(0, currentAngle - 30);
+  int endAngle = currentAngle;
   
+  fill(0,255,0);
+  noStroke();
   
-  for (int ang = lastAngle ; ang < currentAngle; ang++) {
-    if (distances[ang] >= 0) {
+  for (int ang = 0; ang < 180; ang++) {
+    if (distances[ang] >= 0 && angleInRange(ang, startAngle, endAngle)) {
+  
       float rad = radians(ang);
-      
       float x = distances[ang] * cos(rad);
       float y = distances[ang] * sin(rad);
-
+  
       ellipse(x, y, 6, 6);
     }
   }
@@ -74,7 +66,7 @@ void draw() {
   noFill();
   //beginShape();
 
-  for (int ang =0; ang < 180; ang++) {
+  for (int ang = constrain(currentAngle - 20, 0, 179); ang < 180; ang++) {
     if (distances[ang] >= 0) {
       
       float d1 = distances[ang];
