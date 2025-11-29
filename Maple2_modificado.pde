@@ -1,129 +1,131 @@
 import processing.serial.*;
 
 Serial myPort;
-float[] distances = new float[180];
+float[] distances = new float[181];
 
-float interpSteps = 20; 
+int maxDistance = 250; 
+int cx, cy; 
 
-float angle = 0;
-float distance = 0;
+float currentDistance = 0;
 int currentAngle = 0;
 
+
 void setup() {
-  size(600, 600);
-  background(0);
+  size(800, 600); 
+  smooth();
   
-  // Inicializar con -1 para indicar "sin dato"
-  for (int i = 0; i < 180; i++) distances[i] = -1;
+  cx = width/2;
+  cy = height - 50; 
+  
+  for (int i = 0; i <= 180; i++) distances[i] = -1;
 
 
-  // Selecciona el puerto correcto
   printArray(Serial.list());
-  myPort = new Serial(this, Serial.list()[4], 9600);
-
-
-  translate(width/2, height/2);
-}
-
-boolean angleInRange(int ang, int start, int end) {
-  if (start <= end) {
-    return ang >= start && ang <= end;
-  } else {
-    // Maneja wrap-around (ej: 350 → 10)
-    return ang >= start || ang <= end;
+  try {
+    String portName = Serial.list()[4]; 
+    myPort = new Serial(this, portName, 9600);
+    myPort.bufferUntil('.');
+  } catch (Exception e) {
+    println("Serial Port invalido");
   }
+  
+  background(0);
 }
-
 
 void draw() {
-  background(0);
-  translate(width/2, height/2);
-  stroke(255);
-  noFill();
-  
-  // Dibujar círculos de referencia
-  for (int r = 50; r <= 250; r += 50) {
-    ellipse(0, 0, r*2, r*2);
-  }
-  
-  int startAngle = max(0, currentAngle - 30);
-  int endAngle = currentAngle;
-  
-  fill(0,255,0);
+  fill(0, 0, 0, 20); 
   noStroke();
+  rect(0, 0, width, height);
   
-  for (int ang = 0; ang < 180; ang++) {
-    if (distances[ang] >= 0 && angleInRange(ang, startAngle, endAngle)) {
+  translate(cx, cy); 
   
-      float rad = radians(ang);
-      float x = distances[ang] * cos(rad);
-      float y = distances[ang] * sin(rad);
+  drawRadarGrid();
   
-      ellipse(x, y, 6, 6);
-    }
-  }
-  stroke(0,255,150);
-  noFill();
-  //beginShape();
-
-  for (int ang = constrain(currentAngle - 20, 0, 179); ang < 180; ang++) {
-    if (distances[ang] >= 0) {
-      
-      float d1 = distances[ang];
-      float d2 = distances[ang + 1];
-
-      // Si el siguiente ángulo también tiene dato, interpolar
-      if (d2 >= 0) {
-        for (int s = 0; s <= interpSteps; s++) {
-          float t = s / interpSteps; // 0 → 1
-          float dInterp = lerp(d1, d2, t);
-          float rad = radians(ang + t);
-
-          float x = dInterp * cos(rad);
-          float y = dInterp * sin(rad);
-          vertex(x, y);
-        }
-      } else {
-        // sin interpolación
-        float rad = radians(ang);
-        float x = d1 * cos(rad);
-        float y = d1 * sin(rad);
-        vertex(x, y);
-      }
-    }
-  }
-
-  //endShape(CLOSE);
-
-
-  // Dibujar línea desde el centro
-  stroke(255,200,0);
-  strokeWeight(2);
-  float rad = radians(currentAngle);
-      
-  float x = 280 * cos(rad);
-  float y = 280 * sin(rad);
-
-  line(0,0,x,y);
+  drawObjects();
+  
+  drawScanner();
+  
+  drawTextInfo();
 }
 
+void drawRadarGrid() {
+  stroke(0, 255, 0, 50); 
+  strokeWeight(1);
+  noFill();
+  
+  for (int r = 50; r <= maxDistance*2; r += 100) {
+    arc(0, 0, r, r, PI, TWO_PI); 
+  }
+  
+  for (int a = 0; a <= 180; a += 30) {
+    float rad = radians(a + 180); 
+    float x = (maxDistance + 20) * cos(rad);
+    float y = (maxDistance + 20) * sin(rad);
+    line(0, 0, x, y);
+  }
+}
 
+void drawObjects() {
+  noStroke();
+  
+  for (int i = 0; i < 180; i++) {
+    if (distances[i] > 0) {
+        float rad = radians(i + 180); 
+        float distPx = distances[i];
+        
+        float x = distPx * cos(rad);
+        float y = distPx * sin(rad);
+        
+        fill(0, 255, 0);
+        ellipse(x, y, 10, 10);
+    }
+  }
+}
+
+void drawScanner() {
+  pushMatrix();
+  float rad = radians(currentAngle + 180);
+  
+  stroke(0, 255, 0);
+  strokeWeight(3);
+  line(0, 0, maxDistance * cos(rad), maxDistance * sin(rad));
+  popMatrix();
+}
+
+void drawTextInfo() {
+  fill(0, 255, 0);
+  textSize(20);
+  textAlign(LEFT);
+  
+  text("Ángulo: " + currentAngle + "°", -cx + 20, -cy + 30);
+  
+  String distStr = (distances[currentAngle] > 0) ? nf(distances[currentAngle]/10.0, 0, 1) + " cm" : "Fuera de Rango";
+  text("Distancia: " + distStr, -cx + 20, -cy + 55);
+}
 
 void serialEvent(Serial p) {
-  String line = p.readStringUntil('.');
-  if (line != null) {
-    line = trim(line);
-    String[] parts = split(line, ',');
-
-    if (parts.length == 2) {
-      int ang = int(parts[0]) % 180;
-      float dist = float(parts[1])*10;
-
-      if(dist > 250) dist = -1;
-      // Guardar la distancia del ángulo
-      distances[ang] = dist;
+  try {
+    String line = p.readStringUntil('.');
+    if (line != null) {
+      line = trim(line);
+      String[] parts = split(line, ',');
       
-      currentAngle = ang;
+      if (parts.length == 2) {
+        int ang = int(parts[0]);
+        float dist = float(parts[1]); 
+        
+        float distPixel = dist * 5; 
+        
+        if (distPixel > maxDistance) distPixel = -1; 
+        if (distPixel < 5) distPixel = -1; 
+        
+        ang = constrain(ang, 0, 180);
+       
+        distances[ang] = distPixel;
+        currentAngle = ang;
+      }
     }
+  } catch(RuntimeException e) {
+    e.printStackTrace();
   }
 }
